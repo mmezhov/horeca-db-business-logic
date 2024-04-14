@@ -4,4 +4,5 @@ gunicorn
 pandas
 SQLAlchemy
 psycopg2
+requests
 .

@@ -5,3 +5,4 @@ compose.yaml
 __pycache__/
 *.egg-info/
 build/
+logs/
