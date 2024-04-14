@@ -1,0 +1,22 @@
+{
+    "Servers": {
+      "1": {
+        "Name": "Horeca PostgreSQL Server",
+        "Group": "Servers",
+        "Host": "horeca_db_service",
+        "Port": 5432,
+        "MaintenanceDB": "postgres",
+        "Username": "maksim",
+        "Password": "dfjWI234mso",
+        "SSLMode": "prefer",
+        "Properties": {
+          "startup": "connect",
+          "dbname": "horeca_db",
+          "host": "horeca_db_service",
+          "port": "5432",
+          "user": "maksim",
+          "password": "dfjWI234mso"
+        }
+      }
+    }
+  }
