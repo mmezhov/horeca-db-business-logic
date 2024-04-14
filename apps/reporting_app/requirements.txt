@@ -3,3 +3,5 @@ Flask-SQLAlchemy
 gunicorn
 pandas
 SQLAlchemy
+psycopg2
+.
