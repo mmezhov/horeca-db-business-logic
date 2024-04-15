@@ -3,7 +3,7 @@ import pytz
 
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from src.db_model import db, Scores
+from src.db_model import db, Scores, Criteria
 from src.config import Config
 from pathlib import Path
 from datetime import datetime
@@ -40,7 +40,7 @@ def index():
 
 
 @app.route('/api/scores', methods=['POST'])
-def api_insert_score():
+def scores_handler():
 	# Получение данных из JSON запроса
 	data = request.json
 	_, token = request.headers.get('Authorization').split(' ')
@@ -68,6 +68,23 @@ def api_insert_score():
 			return jsonify({"error": "Error inserting scores data"}), INTERNAL_SERVER_ERROR
 
 	return jsonify({"success": "Success inserted the data into a db"}), OK_STATUS_CODE
+
+
+@app.route('/api/criteria', methods=['GET','POST'])
+def criteria_handler():
+	_, token = request.headers.get('Authorization').split(' ')
+
+	if token != Config.TOKEN:
+		return jsonify({"error": "Unauthorized"}), UNAUTHORIZED_CODE
+
+	if request.method == 'GET':
+		try:
+			criteria = Criteria.query.all()
+			criteria_list = [{'id': crit.id, 'name': crit.name} for crit in criteria]
+			return jsonify(criteria_list), OK_STATUS_CODE
+		except:
+			log.error("Error with getting data from `criteria` table", exc_info=True)
+			return jsonify({"error": "Internal server error"}), INTERNAL_SERVER_ERROR
 
 
 if __name__ == '__main__':

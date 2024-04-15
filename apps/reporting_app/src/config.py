@@ -8,5 +8,5 @@ class Config:
     # Для API
     TOKEN = 'KUbnv874Dkfg'
 
-    # Для тестов
+    # TURBOAPI
     API_URL = "https://horeca.turboapi.ru/api"
