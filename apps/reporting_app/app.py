@@ -2,7 +2,7 @@ import logging
 import pytz
 
 from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
+# from flask_sqlalchemy import SQLAlchemy
 from src.db_model import db, Scores, Criteria
 from src.config import Config
 from pathlib import Path
