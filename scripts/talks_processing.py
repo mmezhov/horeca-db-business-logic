@@ -6,10 +6,8 @@
 """
 import logging
 import yaml
-import os
-import librosa
 import numpy as np
-import io
+import scipy.fftpack as fftpack
 import subprocess
 import noisereduce as nr
 
@@ -24,7 +22,6 @@ from scipy.io import wavfile
 PWD = Path.cwd()
 LOG_LEVEL = logging.DEBUG
 MODULE_NAME = "talks_processing"
-SAMPLE_RATE = 12_000
 
 
 """ LOGGING """
@@ -56,9 +53,34 @@ def convert_mp3_to_wav_mono(input_mp3_path, output_wav_path):
     subprocess.run(command, check=True)
 
 
-def filter_frequencies(audio_segment, low_freq=256, high_freq=2048):
-    filtered_audio = audio_segment.high_pass_filter(low_freq).low_pass_filter(high_freq)
-    return filtered_audio
+def filter_frequencies(audio: AudioSegment, low_freq=64, high_freq=2050): 
+    # Преобразование в моно (если не моно)
+    if audio.channels > 1:
+        audio = audio.set_channels(1)
+    
+    # Извлечение сырых данных и частоты дискретизации
+    samples = np.array(audio.get_array_of_samples())
+    sample_rate = audio.frame_rate
+    
+    # Применение быстрого преобразования Фурье (FFT)
+    fft_data = fftpack.fft(samples)
+    frequencies = fftpack.fftfreq(len(fft_data), 1 / sample_rate)
+    
+    # Применение фильтрации частот
+    fft_data[(frequencies < low_freq)] = 0
+    fft_data[(frequencies > high_freq)] = 0
+    
+    # Обратное преобразование Фурье
+    filtered_samples = fftpack.ifft(fft_data).real
+    filtered_samples = np.int16(filtered_samples)
+    
+    # Создание нового AudioSegment из отфильтрованных данных
+    return AudioSegment(
+        data=filtered_samples.tobytes(),
+        sample_width=audio.sample_width,
+        frame_rate=sample_rate,
+        channels=1
+    )
 
 
 # def process_audio(audio_fragment, min_silence_len: int = 1000, silence_thresh: int = -40):
@@ -73,25 +95,27 @@ def process_audio(mp3_file_path, min_silence_len: int = 1000, silence_thresh: in
     chunks: список сегментов, выделенных в аудио фрагменте, где была задетектирована не тишина
 
     """
-    # chunks = split_on_silence(audio_fragment, min_silence_len=min_silence_len, silence_thresh=silence_thresh)
-    # silence = (len(chunks) == 1 and len(chunks[0]) > 0)
-
     wav_file_path = f"{mp3_file_path.parent}/{mp3_file_path.stem}.wav"
     wav_file_reduced_noise_path = f"{mp3_file_path.parent}/{mp3_file_path.stem}_reduced_noise.wav"
+
+    # Добавить громкости исходному файлу
+    # audio_segment = AudioSegment.from_file(mp3_file_path, channels=1).apply_gain(+10)
+    # audio_segment.export(wav_file_path, format='wav')
 
     # Конвертация MP3 в WAV (моно)
     convert_mp3_to_wav_mono(mp3_file_path, wav_file_path)
 
     # Удаление шумов
     rate, data = wavfile.read(wav_file_path)
-    reduced_noise = nr.reduce_noise(y=data, sr=rate)
+    reduced_noise = nr.reduce_noise(y=data, sr=rate, n_jobs=-1)
     wavfile.write(wav_file_reduced_noise_path, rate, reduced_noise)
 
     # Создание AudioSegment
     audio_segment = AudioSegment.from_file(wav_file_reduced_noise_path, channels=1)
-    # добавление громкости
-    audio_segment = audio_segment.apply_gain(+10)  # в децебелах
-    audio_segment.export(f"{mp3_file_path.parent}/{mp3_file_path.stem}_gain_up.wav", format='wav')
+
+    # Фильтрация ненужных частот
+    audio_segment = filter_frequencies(audio_segment).apply_gain(+20)
+    audio_segment.export(f"{mp3_file_path.parent}/{mp3_file_path.stem}_filtered.wav", format='wav')
 
     # Извлечение сегментов с речью
     speech_segments = silence.detect_nonsilent(audio_segment)
