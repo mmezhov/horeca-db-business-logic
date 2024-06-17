@@ -7,10 +7,11 @@
 import logging
 import yaml
 import os
-import librosa
+# import librosa
 import numpy as np
 import io
 import subprocess
+import noisereduce as nr
 
 from pathlib import Path
 from pydub import AudioSegment
@@ -22,6 +23,7 @@ from pydub import silence
 PWD = Path.cwd()
 LOG_LEVEL = logging.DEBUG
 MODULE_NAME = "talks_processing"
+SAMPLE_RATE = 12_000
 
 
 """ LOGGING """
@@ -87,6 +89,9 @@ def process_audio(mp3_file_path, min_silence_len: int = 1000, silence_thresh: in
     # Конвертация MP3 в WAV (моно) в памяти
     wav_stream = convert_mp3_to_wav_mono_in_memory(mp3_data)
     wav_stream.seek(0)
+
+    # Удаление шумов
+    wav_stream = nr.reduce_noise(y=wav_stream, sr=SAMPLE_RATE)
 
     # Создание AudioSegment из WAV байтового потока
     audio_segment = AudioSegment.from_wav(wav_stream)
