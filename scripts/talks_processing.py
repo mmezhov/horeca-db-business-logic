@@ -99,11 +99,8 @@ def process_audio(mp3_file_path, min_silence_len: int = 1000, silence_thresh: in
     wav_file_reduced_noise_path = f"{mp3_file_path.parent}/{mp3_file_path.stem}_reduced_noise.wav"
 
     # Добавить громкости исходному файлу
-    # audio_segment = AudioSegment.from_file(mp3_file_path, channels=1).apply_gain(+10)
-    # audio_segment.export(wav_file_path, format='wav')
-
-    # Конвертация MP3 в WAV (моно)
-    convert_mp3_to_wav_mono(mp3_file_path, wav_file_path)
+    audio_segment = AudioSegment.from_file(mp3_file_path, channels=1).apply_gain(+10)
+    audio_segment.export(wav_file_path, format='wav')
 
     # Удаление шумов
     rate, data = wavfile.read(wav_file_path)
@@ -112,10 +109,6 @@ def process_audio(mp3_file_path, min_silence_len: int = 1000, silence_thresh: in
 
     # Создание AudioSegment
     audio_segment = AudioSegment.from_file(wav_file_reduced_noise_path, channels=1)
-
-    # Фильтрация ненужных частот
-    audio_segment = filter_frequencies(audio_segment).apply_gain(+20)
-    audio_segment.export(f"{mp3_file_path.parent}/{mp3_file_path.stem}_filtered.wav", format='wav')
 
     # Извлечение сегментов с речью
     speech_segments = silence.detect_nonsilent(audio_segment)
