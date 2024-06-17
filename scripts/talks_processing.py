@@ -7,7 +7,7 @@
 import logging
 import yaml
 import os
-# import librosa
+import librosa
 import numpy as np
 import io
 import subprocess
@@ -48,11 +48,17 @@ except:
 def convert_mp3_to_wav_mono(input_mp3_path, output_wav_path):
     command = [
         "ffmpeg",
+        "-y",
         "-i", input_mp3_path,
         "-ac", "1",
         output_wav_path
     ]
     subprocess.run(command, check=True)
+
+
+def filter_frequencies(audio_segment, low_freq=256, high_freq=2048):
+    filtered_audio = audio_segment.high_pass_filter(low_freq).low_pass_filter(high_freq)
+    return filtered_audio
 
 
 # def process_audio(audio_fragment, min_silence_len: int = 1000, silence_thresh: int = -40):
@@ -83,6 +89,8 @@ def process_audio(mp3_file_path, min_silence_len: int = 1000, silence_thresh: in
 
     # Создание AudioSegment
     audio_segment = AudioSegment.from_wav(wav_file_reduced_noise_path)
+    audio_segment = filter_frequencies(audio_segment)
+    audio_segment.export(f"{mp3_file_path.parent}/{mp3_file_path.stem}_filtered.mp3", format='mp3')
 
     # Извлечение сегментов с речью
     speech_segments = silence.detect_nonsilent(audio_segment, silence_thresh)
