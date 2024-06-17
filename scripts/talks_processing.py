@@ -17,6 +17,7 @@ from pathlib import Path
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 from pydub import silence
+from scipy.io import wavfile
 
 
 """ CONST """
@@ -44,27 +45,14 @@ except:
     raise FileNotFoundError("talks_processing_config.yaml")
 
 
-def convert_mp3_to_wav_mono_in_memory(mp3_data):
-    # Создаем временные байтовые потоки для ввода и вывода
-    mp3_stream = io.BytesIO(mp3_data)
-    wav_stream = io.BytesIO()
-
-    # Команда FFmpeg для конвертации MP3 в WAV (моно)
+def convert_mp3_to_wav_mono(input_mp3_path, output_wav_path):
     command = [
         "ffmpeg",
-        "-i", "pipe:0",
+        "-i", input_mp3_path,
         "-ac", "1",
-        "-f", "wav",
-        "pipe:1"
+        output_wav_path
     ]
-
-    # Запуск FFmpeg
-    process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    wav_data, _ = process.communicate(input=mp3_stream.read())
-    wav_stream.write(wav_data)
-    wav_stream.seek(0)
-
-    return wav_stream
+    subprocess.run(command, check=True)
 
 
 # def process_audio(audio_fragment, min_silence_len: int = 1000, silence_thresh: int = -40):
@@ -82,19 +70,19 @@ def process_audio(mp3_file_path, min_silence_len: int = 1000, silence_thresh: in
     # chunks = split_on_silence(audio_fragment, min_silence_len=min_silence_len, silence_thresh=silence_thresh)
     # silence = (len(chunks) == 1 and len(chunks[0]) > 0)
 
-     # Чтение MP3 файла в память
-    with open(mp3_file_path, "rb") as f:
-        mp3_data = f.read()
+    wav_file_path = f"{mp3_file_path.parent}/{mp3_file_path.stem}.wav"
+    wav_file_reduced_noise_path = f"{mp3_file_path.parent}/{mp3_file_path.stem}_reduced_noise.wav"
 
-    # Конвертация MP3 в WAV (моно) в памяти
-    wav_stream = convert_mp3_to_wav_mono_in_memory(mp3_data)
-    wav_stream.seek(0)
+    # Конвертация MP3 в WAV (моно)
+    convert_mp3_to_wav_mono(mp3_file_path, wav_file_path)
 
     # Удаление шумов
-    wav_stream = nr.reduce_noise(y=wav_stream, sr=SAMPLE_RATE)
+    rate, data = wavfile.read(wav_file_path)
+    reduced_noise = nr.reduce_noise(y=data, sr=rate)
+    wavfile.write(wav_file_reduced_noise_path, rate, reduced_noise)
 
-    # Создание AudioSegment из WAV байтового потока
-    audio_segment = AudioSegment.from_wav(wav_stream)
+    # Создание AudioSegment
+    audio_segment = AudioSegment.from_wav(wav_file_reduced_noise_path)
 
     # Извлечение сегментов с речью
     speech_segments = silence.detect_nonsilent(audio_segment, silence_thresh)
