@@ -5,6 +5,7 @@
 
 """
 import logging
+from matplotlib.cbook import is_writable_file_like
 import yaml
 import numpy as np
 import scipy.fftpack as fftpack
@@ -83,7 +84,6 @@ def filter_frequencies(audio: AudioSegment, low_freq=64, high_freq=2050):
     )
 
 
-# def process_audio(audio_fragment, min_silence_len: int = 1000, silence_thresh: int = -40):
 def process_audio(mp3_file_path):
     """
     min_silence_len: минимальный фрагмент тишины, который будет являться триггером для разбиения аудио фрагмента
@@ -95,20 +95,20 @@ def process_audio(mp3_file_path):
     chunks: список сегментов, выделенных в аудио фрагменте, где была задетектирована не тишина
 
     """
-    wav_file_path = f"{mp3_file_path.parent}/{mp3_file_path.stem}.wav"
-    wav_file_reduced_noise_path = f"{mp3_file_path.parent}/{mp3_file_path.stem}_reduced_noise.wav"
+    # wav_file_path = f"{mp3_file_path.parent}/{mp3_file_path.stem}.wav"
+    # wav_file_reduced_noise_path = f"{mp3_file_path.parent}/{mp3_file_path.stem}_reduced_noise.wav"
 
     # Добавить громкости исходному файлу
     audio_segment = AudioSegment.from_file(mp3_file_path, channels=1).apply_gain(+10)
-    audio_segment.export(wav_file_path, format='wav')
+    # audio_segment.export(wav_file_path, format='wav')
 
-    # Удаление шумов
-    rate, data = wavfile.read(wav_file_path)
-    reduced_noise = nr.reduce_noise(y=data, sr=rate, n_jobs=-1)
-    wavfile.write(wav_file_reduced_noise_path, rate, reduced_noise)
+    # # Удаление шумов
+    # rate, data = wavfile.read(wav_file_path)
+    # reduced_noise = nr.reduce_noise(y=data, sr=rate, n_jobs=-1)
+    # wavfile.write(wav_file_reduced_noise_path, rate, reduced_noise)
 
-    # Создание AudioSegment
-    audio_segment = AudioSegment.from_file(wav_file_reduced_noise_path, channels=1) 
+    # # Создание AudioSegment
+    # audio_segment = AudioSegment.from_file(wav_file_reduced_noise_path, channels=1) 
 
     return audio_segment
 
@@ -116,14 +116,18 @@ def process_audio(mp3_file_path):
 def detect_speech(audio_segment: AudioSegment):
     """ Detect non silent segments in audio """
     # Извлечение сегментов с речью
-    speech_segments = silence.detect_nonsilent(audio_segment)
+    speech_segments = silence.detect_nonsilent(audio_segment, silence_thresh=-16)
     # log.debug(f"{mp3_file_path.stem}: speech_segments len = {len(speech_segments)}")
 
-    is_talk = (
-        len(speech_segments) >= 1 and  # более 1 сегмента выделено
-        speech_segments[-1][0] != 0 and  # начало крайнего сегмента не равно началу аудио
-        speech_segments[-1][-1] != round(audio_segment.duration_seconds * 1000)  # конец крайнего сегмента не равно концу аудио
-    ) 
+    # 1 и более сегмента выделено
+    # if len(speech_segments) >= 1: 
+    #     is_talk = (
+    #         speech_segments[0][0] != 0 and  # начало первого сегмента не равно началу аудио
+    #         speech_segments[0][-1] != round(audio_segment.duration_seconds * 1000)  # конец первого сегмента не равно концу аудио
+    #     )
+    # else:
+    #      is_talk = False
+    is_talk = (len(speech_segments) >= 1)
 
     return (is_talk, speech_segments)
 
@@ -131,7 +135,7 @@ def detect_speech(audio_segment: AudioSegment):
 def find_talks():
     # os.system(f"sudo mv {config.get('AUDIO_BATCHES_DIR')}/* {PWD}/audios/raw")
     audios_list = list((PWD/'audios/raw').glob('*.mp3'))
-    log.info(f"Len of audios_list: {len(audios_list)} ")
+    log.debug(f"Len of audios_list: {len(audios_list)} ")
     
     merged_audio = AudioSegment.empty()
 
@@ -140,7 +144,7 @@ def find_talks():
             # silence, chunks = contains_only_silence(AudioSegment.from_mp3(audio))
             audio_segment = process_audio(audio)
             is_talk, speech_segments = detect_speech(audio_segment)
-            
+
             if is_talk:
                 log.debug(f"{audio.stem} has sounds")
                 for start, end in speech_segments:
@@ -158,6 +162,11 @@ def find_talks():
             log.error(f"Error with processing {audio}", exc_info=True)
             continue
         # os.system(f"rm {str(audio)}")
+
+    # all audios at last butch iteration were nonsilence
+    if is_talk:
+        merged_audio.export(PWD / f'audios/talks/{audio.name}', format='mp3')
+        log.debug(f"Talk saved to {PWD / f'audios/talks/{audio.name}'}")
 
 
 def clean_processed_audios():
