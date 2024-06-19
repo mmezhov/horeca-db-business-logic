@@ -84,7 +84,7 @@ def filter_frequencies(audio: AudioSegment, low_freq=64, high_freq=2050):
 
 
 # def process_audio(audio_fragment, min_silence_len: int = 1000, silence_thresh: int = -40):
-def process_audio(mp3_file_path, min_silence_len: int = 1000, silence_thresh: int = -40):
+def process_audio(mp3_file_path):
     """
     min_silence_len: минимальный фрагмент тишины, который будет являться триггером для разбиения аудио фрагмента
     silence_thresh: частота в децебеллах, ниже которой всё будет восприниматься как тишина
@@ -108,19 +108,24 @@ def process_audio(mp3_file_path, min_silence_len: int = 1000, silence_thresh: in
     wavfile.write(wav_file_reduced_noise_path, rate, reduced_noise)
 
     # Создание AudioSegment
-    audio_segment = AudioSegment.from_file(wav_file_reduced_noise_path, channels=1)
+    audio_segment = AudioSegment.from_file(wav_file_reduced_noise_path, channels=1) 
 
+    return audio_segment
+
+
+def detect_speech(audio_segment: AudioSegment):
+    """ Detect non silent segments in audio """
     # Извлечение сегментов с речью
     speech_segments = silence.detect_nonsilent(audio_segment)
-    log.debug(f"{mp3_file_path.stem}: speech_segments len = {len(speech_segments)}")
+    # log.debug(f"{mp3_file_path.stem}: speech_segments len = {len(speech_segments)}")
 
     is_talk = (
         len(speech_segments) >= 1 and  # более 1 сегмента выделено
         speech_segments[-1][0] != 0 and  # начало крайнего сегмента не равно началу аудио
         speech_segments[-1][-1] != round(audio_segment.duration_seconds * 1000)  # конец крайнего сегмента не равно концу аудио
-    )  
+    ) 
 
-    return (is_talk, speech_segments, audio_segment)
+    return (is_talk, speech_segments)
 
 
 def find_talks():
@@ -133,7 +138,9 @@ def find_talks():
     for audio in audios_list:
         try:
             # silence, chunks = contains_only_silence(AudioSegment.from_mp3(audio))
-            is_talk, speech_segments, audio_segment = process_audio(audio)
+            audio_segment = process_audio(audio)
+            is_talk, speech_segments = detect_speech(audio_segment)
+            
             if is_talk:
                 log.debug(f"{audio.stem} has sounds")
                 for start, end in speech_segments:
